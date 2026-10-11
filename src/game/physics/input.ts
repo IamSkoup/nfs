@@ -24,6 +24,7 @@ export class InputController {
     jump: false, boost: false, pause: false, restart: false,
   };
   private pressed = new Set<string>();
+  private padJumpWasDown = false;
 
   constructor() {
     window.addEventListener('keydown', (event) => {
@@ -43,20 +44,40 @@ export class InputController {
   }
 
   consume(key: 'pause' | 'restart' | 'jump'): boolean {
-    const had = this.pressed.has(key);
+    let had = this.pressed.has(key);
     this.pressed.delete(key);
+    if (key === 'jump') {
+      const down = (navigator.getGamepads?.()[0]?.buttons[0]?.pressed ?? false);
+      had ||= down && !this.padJumpWasDown;
+      this.padJumpWasDown = down;
+    }
     return had;
   }
 
   axis(): number {
     let axis = Number(this.state.right) - Number(this.state.left);
     const pad = navigator.getGamepads?.()[0];
-    if (pad) axis = Math.abs(pad.axes[0] ?? 0) > 0.16 ? pad.axes[0] : axis;
+    if (pad) {
+      const raw = pad.axes[0] ?? 0;
+      const deadzone = .14;
+      const normalized = Math.abs(raw) <= deadzone ? 0 : Math.sign(raw) * ((Math.abs(raw) - deadzone) / (1 - deadzone));
+      axis = normalized || axis;
+    }
     return axis;
   }
 
   accelerating(): boolean {
     const pad = navigator.getGamepads?.()[0];
     return this.state.accelerate || Boolean(pad && (pad.buttons[7]?.value ?? 0) > 0.2);
+  }
+
+  braking(): boolean {
+    const pad = navigator.getGamepads?.()[0];
+    return this.state.brake || Boolean(pad && ((pad.buttons[6]?.value ?? 0) > .2 || pad.buttons[1]?.pressed));
+  }
+
+  boosting(): boolean {
+    const pad = navigator.getGamepads?.()[0];
+    return this.state.boost || Boolean(pad?.buttons[2]?.pressed);
   }
 }

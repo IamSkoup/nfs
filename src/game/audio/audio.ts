@@ -2,6 +2,7 @@ export class GameAudio {
   private context?: AudioContext;
   private musicTimer?: number;
   private note = 0;
+  private mode: 'menu' | 'race' = 'menu';
   muted = false;
 
   unlock(): void {
@@ -14,17 +15,28 @@ export class GameAudio {
   go(): void { this.tone(720, 0.24, 'sawtooth', 0.09); }
   hit(): void { this.tone(85, 0.2, 'sawtooth', 0.1); }
 
-  startMusic(): void {
+  startMusic(mode: 'menu' | 'race' = 'menu'): void {
     this.unlock();
-    if (this.musicTimer) return;
-    const line = [55, 55, 82, 73, 55, 55, 98, 82];
+    if (this.musicTimer && this.mode === mode) return;
+    this.stopMusic();
+    this.mode = mode;
+    this.note = 0;
+    const menuLine = [110, 130.8, 164.8, 196, 164.8, 130.8, 98, 130.8];
+    const raceLine = [55, 55, 82.4, 73.4, 55, 55, 98, 82.4];
+    const line = mode === 'menu' ? menuLine : raceLine;
     this.musicTimer = window.setInterval(() => {
       if (this.muted) return;
       const beat = this.note++ % line.length;
-      this.tone(line[beat], 0.14, beat % 2 ? 'triangle' : 'sawtooth', 0.045);
-      if (beat % 2 === 0) this.tone(42, 0.07, 'sine', 0.07);
-      if (beat % 4 === 2) this.tone(220 + Math.random() * 80, 0.035, 'square', 0.018);
-    }, 190);
+      if (mode === 'menu') {
+        this.tone(line[beat]!, .42, beat % 3 ? 'sine' : 'triangle', .027);
+        if (beat % 4 === 0) this.tone(line[beat]! / 2, .6, 'sine', .035);
+        if (beat % 4 === 2) this.tone(line[beat]! * 1.5, .2, 'triangle', .013);
+      } else {
+        this.tone(line[beat]!, .14, beat % 2 ? 'triangle' : 'sawtooth', .045);
+        if (beat % 2 === 0) this.tone(42, .07, 'sine', .07);
+        if (beat % 4 === 2) this.tone(220 + Math.random() * 80, .035, 'square', .018);
+      }
+    }, mode === 'menu' ? 340 : 190);
   }
 
   stopMusic(): void {

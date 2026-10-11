@@ -41,7 +41,7 @@ export class CircuitRace {
       { name: 'FULI', runner: player, player: true, progress: 0, speed: 0, lateral: -3.2, phase: 0 },
       ...opponents.map((r) => ({ name: r.name, runner: r.runner, player: false, progress: r.progress, speed: 0, lateral: r.lateral, phase: r.phase, personality: r.personality })),
     ];
-    this.placeRunners();
+    this.placeRunners(.016);
   }
 
   update(dt: number): void {
@@ -66,11 +66,11 @@ export class CircuitRace {
     const player = this.runners[0]!;
     const axis = this.input.axis();
     const accel = this.input.accelerating();
-    const brake = this.input.state.brake;
+    const brake = this.input.braking();
     const max = this.fastestRun * (0.68 + (this.stamina * 0.32));
     player.speed += (accel ? 14.2 : -3.9) * dt;
     if (brake) player.speed -= 18 * dt;
-    if (this.input.state.boost && this.stamina > 0.06 && accel) {
+    if (this.input.boosting() && this.stamina > 0.06 && accel) {
       player.speed += 13 * dt;
       this.stamina = Math.max(0, this.stamina - dt * .24);
     } else {
@@ -90,9 +90,9 @@ export class CircuitRace {
     if (this.airborne > 0) this.airborne -= dt;
     player.progress += player.speed * dt / this.track.length;
     this.updateOpponents(dt);
-    this.placeRunners();
+    this.placeRunners(dt);
     this.updateLapAndFinish(player);
-    this.hud.update(player.speed, this.getPlace(), this.runners.length, Math.min(this.totalLaps, Math.floor(player.progress) + 1), this.totalLaps, player.progress / this.totalLaps, this.stamina, this.breath);
+    this.hud.update(player.speed, this.getPlace(), this.runners.length, Math.min(this.totalLaps, Math.floor(player.progress) + 1), this.totalLaps, player.progress / this.totalLaps, this.stamina, this.breath, this.runners.map((r) => r.progress));
     const target = 0.68 + player.speed / Math.max(1, max) * .3;
     this.breath = THREE.MathUtils.damp(this.breath, target, 2.8, dt);
     if (brake || (edge && axis)) this.hud.announce(edge ? 'WATCH THE EDGE' : '', .2);
@@ -117,13 +117,13 @@ export class CircuitRace {
     }
   }
 
-  private placeRunners(): void {
+  private placeRunners(dt: number): void {
     for (const racer of this.runners) {
       const p = this.track.sample(racer.progress, racer.lateral, racer.player && this.airborne > 0 ? Math.sin((.7 - this.airborne) / .7 * Math.PI) * 2.1 : 0);
       racer.runner.root.position.copy(p);
       const tangent = this.track.tangent(racer.progress);
       racer.runner.root.rotation.y = Math.atan2(tangent.x, -tangent.z);
-      racer.runner.update(.016, racer.speed, racer.player && this.airborne > 0, racer.player ? this.input.axis() : 0);
+      racer.runner.update(dt, racer.speed, racer.player && this.airborne > 0, racer.player ? this.input.axis() : 0);
     }
   }
 
@@ -157,6 +157,6 @@ export class CircuitRace {
     }
     this.lastLap = 0;
     this.hud.countdownText('3');
-    this.placeRunners();
+    this.placeRunners(.016);
   }
 }

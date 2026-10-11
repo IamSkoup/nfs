@@ -28,25 +28,54 @@ export class Track {
 
   buildMesh(): THREE.Group {
     const group = new THREE.Group();
-    const points = this.curve.getPoints(360);
-    const road = new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, true), 720, 11, 6, true),
-      new THREE.MeshStandardMaterial({ color: 0x8d6541, roughness: 1 }),
-    );
-    road.position.y = 0.12;
-    road.receiveShadow = true;
-    group.add(road);
-    const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0xd8b46b, roughness: 0.9 });
-    for (let i = 0; i < 90; i++) {
-      const p = i / 90;
+    const ribbon = (width: number, y: number, material: THREE.Material, segments = 720): THREE.Mesh => {
+      const positions: number[] = [];
+      const indices: number[] = [];
+      const uvs: number[] = [];
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const center = this.sample(t, 0, y);
+        const tangent = this.tangent(t);
+        const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
+        const left = center.clone().addScaledVector(normal, width / 2);
+        const right = center.clone().addScaledVector(normal, -width / 2);
+        positions.push(left.x, left.y, left.z, right.x, right.y, right.z);
+        uvs.push(0, t * 70, 1, t * 70);
+        if (i < segments) {
+          const a = i * 2;
+          indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.receiveShadow = true;
+      return mesh;
+    };
+    group.add(ribbon(30, .015, new THREE.MeshStandardMaterial({ color: 0xa28c55, roughness: 1 })));
+    group.add(ribbon(22, .045, new THREE.MeshStandardMaterial({ color: 0x795338, roughness: 1 })));
+    group.add(ribbon(1.2, .07, new THREE.MeshStandardMaterial({ color: 0xc2a268, roughness: 1 }), 320));
+
+    const dummy = new THREE.Object3D();
+    const marker = new THREE.InstancedMesh(new THREE.BoxGeometry(.52, 1.15, .52), new THREE.MeshStandardMaterial({ color: 0xe0c080, roughness: .9 }), 160);
+    let index = 0;
+    for (let i = 0; i < 80; i++) {
+      const p = i / 80;
+      const tangent = this.tangent(p);
       for (const side of [-1, 1]) {
-        const marker = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.8), edgeMaterial);
-        marker.position.copy(this.sample(p, side * 12.4));
-        marker.position.y = 0.9;
-        marker.rotation.y = -this.tangent(p).x * 0.4;
-        group.add(marker);
+        dummy.position.copy(this.sample(p, side * 12.3));
+        dummy.position.y = .57;
+        dummy.rotation.y = Math.atan2(tangent.x, -tangent.z);
+        dummy.updateMatrix();
+        marker.setMatrixAt(index++, dummy.matrix);
       }
     }
+    marker.castShadow = true;
+    marker.receiveShadow = true;
+    group.add(marker);
     return group;
   }
 }

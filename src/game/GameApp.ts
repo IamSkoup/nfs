@@ -44,7 +44,7 @@ export class GameApp {
     this.scene.add(this.player.root);
     this.player.root.userData.player = true;
     this.player.root.position.copy(this.track.sample(.19, 0));
-    this.hud = new HUD(this.root);
+    this.hud = new HUD(this.root, this.track);
     this.hud.element.style.display = 'none';
     this.overlay = document.createElement('div');
     this.overlay.className = 'screen-layer';
@@ -133,7 +133,7 @@ export class GameApp {
       if (action === 'music') this.toggleMusic(button);
     }));
     this.overlay.addEventListener('keydown', () => undefined);
-    this.audio.startMusic();
+    this.audio.startMusic('menu');
   }
 
   private toggleMusic(button: Element): void {
@@ -167,7 +167,7 @@ export class GameApp {
 
   private startRace(): void {
     this.audio.unlock();
-    this.audio.startMusic();
+    this.audio.startMusic('race');
     this.audio.muted = false;
     this.player = new Fuli();
     for (const child of [...this.scene.children]) if (child.userData.racer || child.userData.player) this.scene.remove(child);
