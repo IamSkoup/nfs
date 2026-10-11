@@ -6,7 +6,7 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'docs',
-    rollupOptions: { input: 'site.html' },
+    rollupOptions: { input: 'site.html', output: { manualChunks: { three: ['three'] } } },
   },
   server: { host: '0.0.0.0' },
 });

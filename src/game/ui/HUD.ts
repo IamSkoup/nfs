@@ -34,6 +34,8 @@ export class HUD {
   }
 
   update(speed: number, place: number, racers: number, lap: number, totalLaps: number, progress: number, stamina: number, breath: number, runnerProgress: number[] = []): void {
+    const modeName = this.track.mode === 'circuit' ? 'PRIDE LANDS / CIRCUIT' : this.track.mode === 'sprint' ? 'OUTLANDS / SPRINT' : 'DRY RIVER / DRAG';
+    this.element.querySelector('.hud-brand small')!.textContent = modeName;
     this.speed.textContent = Math.round(speed * 2.35).toString().padStart(2, '0');
     this.position.textContent = `${place}/${racers}`;
     this.lap.textContent = `${lap}/${totalLaps}`;
@@ -63,7 +65,7 @@ export class HUD {
     ctx.lineWidth = 13;
     ctx.beginPath();
     points.forEach((p, i) => { const [x, y] = xy(p); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-    ctx.closePath();
+    if (this.track.mode === 'circuit') ctx.closePath();
     ctx.stroke();
     ctx.strokeStyle = '#d4b477';
     ctx.lineWidth = 2;

@@ -33,6 +33,8 @@ function coatTexture(): THREE.CanvasTexture {
 }
 
 const spotTexture = coatTexture();
+const cheetahSphere = new THREE.SphereGeometry(1, 40, 28);
+const fleckSphere = new THREE.SphereGeometry(1, 7, 5);
 const material = (color: number, roughness = .82) => new THREE.MeshStandardMaterial({ color, roughness });
 
 interface LegRig {
@@ -61,6 +63,8 @@ export class Fuli {
   private fleckMaterial = material(0x38271f);
   private foreheadMaterial = material(0x452d22);
   private runBlend = 0;
+  private bodyAccessories = new THREE.Group();
+  private headAccessories = new THREE.Group();
 
   constructor() {
     this.root.add(this.body);
@@ -68,7 +72,51 @@ export class Fuli {
     this.buildHead();
     this.buildLegs();
     this.buildTail();
+    this.body.add(this.bodyAccessories);
+    this.head.add(this.headAccessories);
+    this.setStyle('classic');
     this.root.scale.setScalar(1.25);
+  }
+
+  setStyle(style: string): void {
+    const palettes: Record<string, { fur: number; trim: number; scarf: number }> = {
+      classic: { fur: 0xffffff, trim: 0xe5ad3b, scarf: 0xd54d29 },
+      sunset: { fur: 0xffc494, trim: 0xdf7b42, scarf: 0xf0c84f },
+      midnight: { fur: 0xa1b5ba, trim: 0x5e6e78, scarf: 0x9d63d1 },
+      snow: { fur: 0xe7e5d9, trim: 0xb9a98a, scarf: 0x5aabc1 },
+    };
+    const palette = palettes[style] ?? palettes.classic!;
+    this.coat.color.setHex(palette.fur);
+    this.gold.color.setHex(palette.trim);
+    this.bodyAccessories.clear();
+    this.headAccessories.clear();
+    if (style !== 'classic') {
+      const scarf = new THREE.Mesh(new THREE.TorusGeometry(.32, .075, 16, 56), new THREE.MeshStandardMaterial({ color: palette.scarf, roughness: .72 }));
+      scarf.position.set(0, 1.47, -.91);
+      scarf.castShadow = true;
+      this.bodyAccessories.add(scarf);
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(.13, 24, 16), new THREE.MeshStandardMaterial({ color: palette.scarf, roughness: .72 }));
+      knot.position.set(.26, 1.42, -.73);
+      knot.scale.set(.8, 1.2, .65);
+      this.bodyAccessories.add(knot);
+      const goggles = new THREE.Group();
+      const lensMat = new THREE.MeshStandardMaterial({ color: 0x263932, metalness: .35, roughness: .22 });
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0xd8c18b, metalness: .6, roughness: .28 });
+      for (const side of [-1, 1]) {
+        const frame = new THREE.Mesh(new THREE.TorusGeometry(.125, .028, 12, 40), frameMat);
+        frame.position.set(side * .19, .09, -.414);
+        goggles.add(frame);
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(.103, 32), lensMat);
+        lens.position.set(side * .19, .09, -.415);
+        goggles.add(lens);
+      }
+      const bridge = new THREE.Mesh(new THREE.CylinderGeometry(.022, .022, .14, 16), frameMat);
+      bridge.position.set(0, .09, -.414);
+      bridge.rotation.z = Math.PI / 2;
+      goggles.add(bridge);
+      this.headAccessories.add(goggles);
+    }
+    this.root.userData.style = style;
   }
 
   private mesh(
@@ -88,7 +136,7 @@ export class Fuli {
   }
 
   private ellipsoid(parent: THREE.Object3D, mat: THREE.Material, position: [number, number, number], scale: [number, number, number]): THREE.Mesh {
-    return this.mesh(parent, new THREE.SphereGeometry(1, 24, 16), mat, new THREE.Vector3(...position), new THREE.Vector3(...scale));
+    return this.mesh(parent, cheetahSphere, mat, new THREE.Vector3(...position), new THREE.Vector3(...scale));
   }
 
   private buildTorso(): void {
@@ -109,7 +157,7 @@ export class Fuli {
           const ny = (y - 1.16) / .48;
           const radial = Math.sqrt(Math.max(.12, 1 - nz * nz - ny * ny));
           const x = side * (.64 * radial + .012);
-          const fleck = this.mesh(this.body, new THREE.SphereGeometry(1, 7, 5), row % 3 ? this.fleckMaterial : this.innerEar,
+          const fleck = this.mesh(this.body, fleckSphere, row % 3 ? this.fleckMaterial : this.innerEar,
             new THREE.Vector3(x, y, z), new THREE.Vector3(.018, .035 + (column % 2) * .012, .045));
           fleck.rotation.y = side * -.16;
         }

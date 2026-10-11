@@ -19,6 +19,7 @@ const keyMap: Record<string, keyof InputState> = {
 };
 
 export class InputController {
+  steeringSensitivity = 1;
   readonly state: InputState = {
     accelerate: false, brake: false, left: false, right: false,
     jump: false, boost: false, pause: false, restart: false,
@@ -63,7 +64,7 @@ export class InputController {
       const normalized = Math.abs(raw) <= deadzone ? 0 : Math.sign(raw) * ((Math.abs(raw) - deadzone) / (1 - deadzone));
       axis = normalized || axis;
     }
-    return axis;
+    return axis * this.steeringSensitivity;
   }
 
   accelerating(): boolean {

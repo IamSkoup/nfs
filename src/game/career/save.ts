@@ -1,4 +1,40 @@
 const STORAGE_KEY = 'savanna-underground-save-v1';
+const SETUP_KEY = 'savanna-underground-setup-v1';
+
+export interface GameSetup {
+  style: 'classic' | 'sunset' | 'midnight' | 'snow';
+  upgrades: { engine: number; grip: number; stamina: number; boost: number };
+  graphics: 'low' | 'medium' | 'high';
+  steering: number;
+  timeOfDay: 'dawn' | 'day' | 'golden' | 'night';
+  weather: 'clear' | 'dust' | 'storm';
+  menuMusic: number;
+  raceMusic: number;
+}
+
+const defaultSetup: GameSetup = {
+  style: 'classic', upgrades: { engine: 0, grip: 0, stamina: 0, boost: 0 },
+  graphics: 'high', steering: 1, timeOfDay: 'golden', weather: 'clear', menuMusic: 0, raceMusic: 0,
+};
+
+export function loadSetup(): GameSetup {
+  try {
+    const raw = localStorage.getItem(SETUP_KEY);
+    if (!raw) return structuredClone(defaultSetup);
+    const data = JSON.parse(raw) as Partial<GameSetup>;
+    return {
+      ...defaultSetup,
+      ...data,
+      upgrades: { ...defaultSetup.upgrades, ...data.upgrades },
+    };
+  } catch {
+    return structuredClone(defaultSetup);
+  }
+}
+
+export function saveSetup(setup: GameSetup): void {
+  localStorage.setItem(SETUP_KEY, JSON.stringify(setup));
+}
 
 export interface CareerSave {
   wins: number;

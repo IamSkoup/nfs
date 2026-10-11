@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { Fuli } from '../player/Fuli';
 import { Racer } from '../ai/Racer';
-import { Track } from '../tracks/track';
+import { RaceMode, Track } from '../tracks/track';
 import { InputController } from '../physics/input';
 import { HUD } from '../ui/HUD';
 
-export interface RaceResult { won: boolean; bestLap: number; speed: number; place: number; }
+export interface RaceTuning { engine: number; grip: number; stamina: number; boost: number; }
+export interface RaceResult { won: boolean; bestLap: number; speed: number; place: number; mode: RaceMode; }
 
 export class CircuitRace {
-  readonly totalLaps = 3;
+  readonly totalLaps: number;
   readonly runners: Array<{ name: string; runner: Fuli; player: boolean; progress: number; speed: number; lateral: number; phase: number; personality?: Racer['personality'] }>;
   elapsed = 0;
   countdown = 3.5;
@@ -25,6 +26,7 @@ export class CircuitRace {
   private finishCallback: (result: RaceResult) => void;
   private pauseCallback: () => void;
   private fastestRun = 18.2;
+  private obstacleCooldown = 0;
 
   constructor(
     private track: Track,
@@ -34,14 +36,19 @@ export class CircuitRace {
     private hud: HUD,
     onFinish: (result: RaceResult) => void,
     onPause: () => void,
+    private tuning: RaceTuning = { engine: 0, grip: 0, stamina: 0, boost: 0 },
+    private onImpact: () => void = () => undefined,
   ) {
     this.finishCallback = onFinish;
     this.pauseCallback = onPause;
+    this.totalLaps = track.mode === 'circuit' ? 3 : 1;
+    this.fastestRun += tuning.engine * 1.7;
     this.runners = [
-      { name: 'FULI', runner: player, player: true, progress: 0, speed: 0, lateral: -3.2, phase: 0 },
+      { name: 'FULI', runner: player, player: true, progress: 0, speed: 0, lateral: track.mode === 'drag' ? -5.5 : -4.5, phase: 0 },
       ...opponents.map((r) => ({ name: r.name, runner: r.runner, player: false, progress: r.progress, speed: 0, lateral: r.lateral, phase: r.phase, personality: r.personality })),
     ];
     this.placeRunners(.016);
+    this.hud.update(0, 1, this.runners.length, 1, this.totalLaps, 0, this.stamina, this.breath, this.runners.map((r) => r.progress));
   }
 
   update(dt: number): void {
@@ -64,28 +71,38 @@ export class CircuitRace {
       return;
     }
     const player = this.runners[0]!;
+    this.obstacleCooldown = Math.max(0, this.obstacleCooldown - dt);
     const axis = this.input.axis();
     const accel = this.input.accelerating();
     const brake = this.input.braking();
     const max = this.fastestRun * (0.68 + (this.stamina * 0.32));
-    player.speed += (accel ? 14.2 : -3.9) * dt;
+    player.speed += (accel ? 14.2 + this.tuning.engine * 1.2 : -3.9) * dt;
     if (brake) player.speed -= 18 * dt;
     if (this.input.boosting() && this.stamina > 0.06 && accel) {
-      player.speed += 13 * dt;
-      this.stamina = Math.max(0, this.stamina - dt * .24);
+      player.speed += (13 + this.tuning.boost * 2) * dt;
+      this.stamina = Math.max(0, this.stamina - dt * (.24 - this.tuning.stamina * .025));
     } else {
-      this.stamina = Math.min(1, this.stamina + dt * (player.speed < 7 ? .15 : .035));
+      this.stamina = Math.min(1, this.stamina + dt * (player.speed < 7 ? .15 : .035) * (1 + this.tuning.stamina * .2));
     }
     player.speed = THREE.MathUtils.clamp(player.speed, 0, max);
     this.maxSpeed = Math.max(this.maxSpeed, player.speed);
     const speedFactor = THREE.MathUtils.clamp(player.speed / max, .1, 1);
-    const turnRate = (1.2 + (1 - speedFactor) * 2.4) * (0.5 + this.stamina * .5);
+    const turnRate = (1.2 + (1 - speedFactor) * 2.4) * (0.5 + this.stamina * .5) * (1 + this.tuning.grip * .1);
     this.lateralVelocity += axis * turnRate * dt * (1 - speedFactor * .28);
     this.lateralVelocity *= Math.exp(-4.8 * dt);
     player.lateral += this.lateralVelocity * dt * 6;
-    const edge = Math.abs(player.lateral) > 8.8;
-    player.lateral = THREE.MathUtils.clamp(player.lateral, -14, 14);
+    const roadEdge = this.track.mode === 'drag' ? 17 : 9.2;
+    const edge = Math.abs(player.lateral) > roadEdge;
+    player.lateral = THREE.MathUtils.clamp(player.lateral, -roadEdge - 4, roadEdge + 4);
     if (edge) player.speed = Math.max(0, player.speed - 7 * dt);
+    const obstacle = this.track.obstacleAt(player.progress, player.lateral);
+    if (obstacle && this.obstacleCooldown <= 0 && this.airborne <= 0) {
+      this.obstacleCooldown = .72;
+      player.speed *= .62;
+      this.lateralVelocity += Math.sign(player.lateral - obstacle.lateral || 1) * 5;
+      this.hud.announce('OBSTACLE HIT', .8);
+      this.onImpact();
+    }
     if (this.input.consume('jump') && this.airborne <= 0 && player.speed > 2) this.airborne = .7;
     if (this.airborne > 0) this.airborne -= dt;
     player.progress += player.speed * dt / this.track.length;
@@ -129,7 +146,7 @@ export class CircuitRace {
 
   private updateLapAndFinish(player: CircuitRace['runners'][number]): void {
     const lap = Math.floor(player.progress);
-    if (lap > this.lastLap && lap > 0) {
+    if (this.track.mode === 'circuit' && lap > this.lastLap && lap > 0) {
       const lapTime = this.elapsed - this.lapStarted;
       this.bestLap = Math.min(this.bestLap, lapTime);
       this.lapStarted = this.elapsed;
@@ -138,7 +155,7 @@ export class CircuitRace {
     if (player.progress >= this.totalLaps) {
       this.finished = true;
       const place = this.getPlace();
-      this.finishCallback({ won: place === 1, bestLap: Number.isFinite(this.bestLap) ? this.bestLap : this.elapsed, speed: this.maxSpeed, place });
+      this.finishCallback({ won: place === 1, bestLap: Number.isFinite(this.bestLap) ? this.bestLap : this.elapsed, speed: this.maxSpeed, place, mode: this.track.mode });
     }
   }
 

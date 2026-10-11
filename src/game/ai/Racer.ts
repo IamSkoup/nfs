@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { Fuli } from '../player/Fuli';
 import { Track } from '../tracks/track';
 
@@ -29,14 +28,12 @@ const profiles: RacerPersonality[] = [
 
 export function createRacers(track: Track): Racer[] {
   const names = ['Kito', 'Duma', 'Zuri'];
+  const styles = ['sunset', 'midnight', 'snow'];
   return names.map((name, i) => {
     const runner = new Fuli();
-    const color = [0xc87934, 0xc4a446, 0xb77b2b][i]!;
-    runner.root.traverse((object) => {
-      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshStandardMaterial && object.material.color.getHex() === 0xdba42e) object.material = new THREE.MeshStandardMaterial({ color, roughness: .9 });
-    });
+    runner.setStyle(styles[i]!);
     const progress = i * 0.002;
-    const lateral = (i - 1) * 3.2;
+    const lateral = track.mode === 'drag' ? (i - 1) * 3.5 : (i - 1) * 3.2;
     runner.root.position.copy(track.sample(progress, lateral));
     return { name, runner, progress, speed: 0, lateral, personality: profiles[i]!, phase: Math.random() * 8 };
   });
