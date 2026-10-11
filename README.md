@@ -11,7 +11,9 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. For a production bundle, run `npm run build`; `npm run preview` serves that bundle locally.
+Open `/site.html` on the local Vite server. For a production bundle, run `npm run build`; the built site is written to `docs/site.html` with its assets in `docs/assets/`.
+
+GitHub Pages is configured to publish the `main` branch root directly. The root `index.html` redirects to the built site under `docs/`; run `npm run build` before pushing changes. Relative asset URLs work under the repository's `/nfs/` path.
 
 ## Controls
 
